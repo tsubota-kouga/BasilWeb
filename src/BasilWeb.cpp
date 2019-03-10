@@ -135,7 +135,7 @@ BasilWeb::BasilWeb(Basilico* basil):
     Tab.setTabsClosable(true);
     Tab.setMovable(true);
     Tab.setCornerWidget(&addButton);
-    connect(&Tab, &QTabWidget::tabCloseRequested, this, 
+    connect(&Tab, &QTabWidget::tabCloseRequested, this,
             [&](int idx){
             if(Tab.count() == 1){ return; }
             Tab.removeTab(idx);
@@ -235,7 +235,6 @@ void BasilWeb::execute(Basilico* basil, Array args)
         Array info;
         for(auto&& c:list)
         {
-            std::cout << c << std::endl;
             info.push_back(Object{c});
         }
         basil->getNeoVim().nvim_set_var(
