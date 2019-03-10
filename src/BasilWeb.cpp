@@ -146,12 +146,15 @@ BasilWeb::BasilWeb(Basilico* basil):
     auto&& obj_default_url = basil->getNeoVim().nvim_get_var("basilweb#default_url");
     default_url = boost::get<String>(obj_default_url);
     auto* Viewer = new WebViewer{basil, &Tab, QString::fromStdString(default_url)};
+
     auto&& pobjStyleSheet = basil->getNeoVim().nvim_get_var("basilweb#progressbar_style_sheet");
     viewerProgressBarStyleSheet = boost::get<String>(pobjStyleSheet);
     Viewer->progressbarSetStyleSheet(viewerProgressBarStyleSheet);
+
     auto&& tobjstyleSheet = basil->getNeoVim().nvim_get_var("basilweb#toolbar_style_sheet");
     viewerToolBarStyleSheet = boost::get<String>(tobjstyleSheet);
     Viewer->toolbarSetStyleSheet(viewerToolBarStyleSheet);
+
     Viewer->setParent(&Tab);
     Tab.addTab(Viewer, Viewer->icon(), Viewer->title());
     //</Viewer>
