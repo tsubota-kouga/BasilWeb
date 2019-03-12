@@ -47,5 +47,8 @@ let g:basilweb#selected_text_list = []
 
 command! -nargs=? WebBasil call basilweb#web_start(<f-args>)
 
+command! -nargs=0 WebBasilC call basilweb#openweb_with_cursor_url()
+
+
 let &cpo = s:save_cpo
 unlet s:save_cpo

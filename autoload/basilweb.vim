@@ -15,5 +15,21 @@ function! basilweb#web_start(...)
     endif
 endfunction
 
+function! s:is_url(str) abort
+    if a:str =~ '^https\?://'  " str is url
+        return v:true
+    endif
+    return v:false
+endfunction
+
+function! basilweb#openweb_with_cursor_url() abort
+    let str = expand('<cfile>')
+    if s:is_url(str)
+        call basilweb#web_start(str)
+    endif
+endfunction
+
 let &cpo = s:save_cpo
 unlet s:save_cpo
+
+" https://www.google.com

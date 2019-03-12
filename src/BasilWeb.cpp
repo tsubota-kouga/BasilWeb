@@ -4,8 +4,10 @@
 
 // WebViewer class
 
+// deque<QWebEngineDownloadItem*> WebViewer::downloaditem{};
+
 WebViewer::WebViewer(Basilico* _basil, QTabWidget* tab, QString url):
-    Web{this},
+    Web{},
     toolbar{this},
     urlline{&toolbar},
     default_url{QUrl{url}},
@@ -15,6 +17,7 @@ WebViewer::WebViewer(Basilico* _basil, QTabWidget* tab, QString url):
     layout = new QGridLayout();
     layout->setContentsMargins(0, 0, 0, 0);
     setLayout(layout);
+    setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
 
     settingToolBar();
 
@@ -98,6 +101,7 @@ void WebViewer::settingProgressBar()
 void WebViewer::settingWebBrowser()
 {
     layout->addWidget(&Web, 3, 0);
+    setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
     connect(&Web, &QWebEngineView::loadFinished, this,
             [&](auto&& ok){ if(ok){
             auto&& url = Web.url().toString();
@@ -109,15 +113,34 @@ void WebViewer::settingWebBrowser()
                             QLineEdit::LeadingPosition);
                 }
             } });
+
+    connect(Web.page()->profile(), &QWebEngineProfile::downloadRequested, this,
+            [&](auto&& item){
+            QMessageBox msgbox;
+            msgbox.setText("Download?");
+            msgbox.setInformativeText(
+                    "Download " + item->url().toString().toStdString() + "?");
+            msgbox.setStandardButtons(QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+            msgbox.setDefaultButton(QMessageBox::Yes);
+            int is_download = msgbox.exec();
+            if(is_download == QMessageBox::Yes)
+            {
+                item->accept();
+                // downloaditem.push_back(item);
+            }
+            else{ item->cancel(); }
+            });
 }
 
 // BasilWeb class
 
-BasilWeb::BasilWeb(Basilico* basil):
+BasilWeb::BasilWeb(Basilico* _basil):
+    QWidget{},
     web_layout{},
     BasilPlugin{},
     Tab{},
-    addButton{"+"}
+    addButton{"+"},
+    basil{_basil}
 {
     installEventFilter(this);
 
@@ -127,49 +150,13 @@ BasilWeb::BasilWeb(Basilico* basil):
     auto&& baseobjstyleSheet = basil->getNeoVim().nvim_get_var("basilweb#base_style_sheet");
     auto&& baseStyleSheet = boost::get<String>(baseobjstyleSheet);
     setStyleSheet(QString::fromStdString(baseStyleSheet));
+    setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
 
-    //<Tab>
-    auto&& objStyleSheet = basil->getNeoVim().nvim_get_var("basilweb#tab_style_sheet");
-    auto&& styleSheet = boost::get<String>(objStyleSheet);
-    Tab.setStyleSheet(QString::fromStdString(styleSheet));
-    Tab.setTabsClosable(true);
-    Tab.setMovable(true);
-    Tab.setCornerWidget(&addButton);
-    connect(&Tab, &QTabWidget::tabCloseRequested, this,
-            [&](int idx){
-            if(Tab.count() == 1){ return; }
-            Tab.removeTab(idx);
-            });
-    //</Tab>
+    settingTab();
 
-    //<Viewer>
-    auto&& obj_default_url = basil->getNeoVim().nvim_get_var("basilweb#default_url");
-    default_url = boost::get<String>(obj_default_url);
-    auto* Viewer = new WebViewer{basil, &Tab, QString::fromStdString(default_url)};
+    settingViewer();
 
-    auto&& pobjStyleSheet = basil->getNeoVim().nvim_get_var("basilweb#progressbar_style_sheet");
-    viewerProgressBarStyleSheet = boost::get<String>(pobjStyleSheet);
-    Viewer->progressbarSetStyleSheet(viewerProgressBarStyleSheet);
-
-    auto&& tobjstyleSheet = basil->getNeoVim().nvim_get_var("basilweb#toolbar_style_sheet");
-    viewerToolBarStyleSheet = boost::get<String>(tobjstyleSheet);
-    Viewer->toolbarSetStyleSheet(viewerToolBarStyleSheet);
-
-    Viewer->setParent(&Tab);
-    Tab.addTab(Viewer, Viewer->icon(), Viewer->title());
-    //</Viewer>
-
-    //<addButton>
-    connect(&addButton, &QPushButton::clicked, &Tab,
-            [&](){
-                auto* Viewer = new WebViewer{basil, &Tab, QString::fromStdString(default_url)};
-                Viewer->progressbarSetStyleSheet(viewerProgressBarStyleSheet);
-                Viewer->toolbarSetStyleSheet(viewerToolBarStyleSheet);
-                Viewer->setParent(&Tab);
-                int idx = Tab.addTab(Viewer, Viewer->icon(), Viewer->title());
-                Tab.setCurrentIndex(idx);
-            });
-    //</addButton>
+    settingAddButton();
 }
 
 BasilWeb::BasilWeb(Basilico* basil, String url):
@@ -243,4 +230,50 @@ void BasilWeb::execute(Basilico* basil, Array args)
         basil->getNeoVim().nvim_set_var(
                 "basilweb#selected_text_list", info);
     }
+}
+
+void BasilWeb::settingTab()
+{
+    auto&& objStyleSheet = basil->getNeoVim().nvim_get_var("basilweb#tab_style_sheet");
+    auto&& styleSheet = boost::get<String>(objStyleSheet);
+    Tab.setStyleSheet(QString::fromStdString(styleSheet));
+    Tab.setTabsClosable(true);
+    Tab.setMovable(true);
+    Tab.setCornerWidget(&addButton);
+    connect(&Tab, &QTabWidget::tabCloseRequested, this,
+            [&](int idx){
+            if(Tab.count() == 1){ return; }
+            Tab.removeTab(idx);
+            });
+}
+
+void BasilWeb::settingViewer()
+{
+    auto&& obj_default_url = basil->getNeoVim().nvim_get_var("basilweb#default_url");
+    default_url = boost::get<String>(obj_default_url);
+    auto* Viewer = new WebViewer{basil, &Tab, QString::fromStdString(default_url)};
+
+    auto&& pobjStyleSheet = basil->getNeoVim().nvim_get_var("basilweb#progressbar_style_sheet");
+    viewerProgressBarStyleSheet = boost::get<String>(pobjStyleSheet);
+    Viewer->progressbarSetStyleSheet(viewerProgressBarStyleSheet);
+
+    auto&& tobjstyleSheet = basil->getNeoVim().nvim_get_var("basilweb#toolbar_style_sheet");
+    viewerToolBarStyleSheet = boost::get<String>(tobjstyleSheet);
+    Viewer->toolbarSetStyleSheet(viewerToolBarStyleSheet);
+
+    Viewer->setParent(&Tab);
+    Tab.addTab(Viewer, Viewer->icon(), Viewer->title());
+}
+
+void BasilWeb::settingAddButton()
+{
+    connect(&addButton, &QPushButton::clicked, &Tab,
+            [&](){
+                auto* Viewer = new WebViewer{basil, &Tab, QString::fromStdString(default_url)};
+                Viewer->progressbarSetStyleSheet(viewerProgressBarStyleSheet);
+                Viewer->toolbarSetStyleSheet(viewerToolBarStyleSheet);
+                Viewer->setParent(&Tab);
+                int idx = Tab.addTab(Viewer, Viewer->icon(), Viewer->title());
+                Tab.setCurrentIndex(idx);
+            });
 }

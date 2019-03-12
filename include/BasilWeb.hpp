@@ -10,6 +10,14 @@
 
 class Basilico;
 
+class WebScreen: public QWebEngineView
+{
+public:
+    WebScreen():
+        QWebEngineView{}
+    {}
+};
+
 class WebViewer: public QWidget
 {
     QGridLayout* layout;
@@ -18,8 +26,9 @@ class WebViewer: public QWidget
     QUrl default_url;
     QProgressBar progressbar;
     Basilico* basil;
+    // static deque<QWebEngineDownloadItem*> downloaditem;
 public:
-    QWebEngineView Web;
+    WebScreen Web;
 
     WebViewer(Basilico* basil, QTabWidget* tab, QString url);
 
@@ -55,6 +64,7 @@ class BasilWeb: public BasilPlugin, public QWidget
     QPushButton addButton;
     String viewerProgressBarStyleSheet;
     String viewerToolBarStyleSheet;
+    Basilico* basil;
 public:
     BasilWeb(Basilico* basil);
 
@@ -68,5 +78,11 @@ public:
 
 protected:
     virtual void execute(Basilico* basil, Array args) override;
+
+    void settingTab();
+
+    void settingViewer();
+
+    void settingAddButton();
 };
 #endif

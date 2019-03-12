@@ -14,11 +14,14 @@ If you use dein.vim, you can write on dein.toml like this.
 repo='tsubota-kouga/BasilWeb'
 hook_add='''
 let g:basilweb#color_theme='dark'
+nnoremap <silent><C-LeftMouse> :call basilweb#openweb_with_cursor_url()<CR> " set mouse=a is required
 '''
 ```
 or write on init.vim
 ```vim
 call dein#add('tsubota-kouga/BasilWeb')
+let g:basilweb#color_theme='dark'
+nnoremap <silent><C-LeftMouse> :call basilweb#openweb_with_cursor_url()<CR>
 ```
 
 ## Feature
