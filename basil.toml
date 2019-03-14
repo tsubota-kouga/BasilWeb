@@ -2,3 +2,4 @@
 [dependency]
 lang='cpp'
 qt_lib=['WebEngineWidgets']
+

@@ -35,12 +35,18 @@ if exists('g:basilweb#color_theme')
                 \   color: #ffffff;
                 \   background-color: #444444;
                 \ '
+        let g:basilweb#icon_theme = 'light'
     elseif g:basilweb#color_theme == 'light'
         let g:basilweb#base_style_sheet = '
                 \   color:#000000
                 \   background-color: #ffffff;
                 \ '
+        let g:basilweb#icon_theme = 'dark'
     endif
+endif
+
+if !exists('g:basilweb#icon_theme')
+    let g:basilweb#icon_theme='black'
 endif
 
 let g:basilweb#selected_text_list = []

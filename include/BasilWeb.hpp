@@ -24,6 +24,8 @@ class WebViewer: public QWidget
     QToolBar toolbar;
     QLineEdit urlline;
     QUrl default_url;
+    QAction securityAction;
+    QAction favoriteAction;
     QProgressBar progressbar;
     Basilico* basil;
     // static deque<QWebEngineDownloadItem*> downloaditem;
@@ -53,7 +55,12 @@ private:
 
     void settingProgressBar();
 
-    void settingWebBrowser();
+    void settingWebBrowser(QTabWidget* tab);
+
+    void settingSecurityAction();
+    void settingFavoriteAction(QTabWidget* tab);
+
+    void setStar();
 };
 
 class BasilWeb: public BasilPlugin, public QWidget
@@ -75,6 +82,18 @@ public:
     bool eventFilter(QObject* obj, QEvent* e) override;
 
     std::vector<String> selectedTextVector();
+
+    static QIcon lockIcon;
+    static QIcon rightArrowIcon;
+    static QIcon leftArrowIcon;
+    static QIcon circleArrowIcon;
+    static QIcon warningIcon;
+    static QIcon homeIcon;
+    static QIcon settingIcon;
+    static QIcon starIcon;
+    static QIcon starHoleIcon;
+
+    static QJsonObject logJson;
 
 protected:
     virtual void execute(Basilico* basil, Array args) override;

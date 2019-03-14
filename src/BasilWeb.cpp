@@ -11,6 +11,8 @@ WebViewer::WebViewer(Basilico* _basil, QTabWidget* tab, QString url):
     toolbar{this},
     urlline{&toolbar},
     default_url{QUrl{url}},
+    securityAction{"Security"},
+    favoriteAction{"Favorite"},
     progressbar{},
     basil{_basil}
 {
@@ -25,7 +27,7 @@ WebViewer::WebViewer(Basilico* _basil, QTabWidget* tab, QString url):
 
     settingProgressBar();
 
-    settingWebBrowser();
+    settingWebBrowser(tab);
 
     // <parent tab>
     connect(&Web, &QWebEngineView::titleChanged, this,
@@ -50,17 +52,21 @@ String WebViewer::selectedText()
 void WebViewer::settingToolBar()
 {
     layout->addWidget(&toolbar, 1, 0, 1, 1);
-    toolbar.addAction(QApplication::style()->standardIcon(QStyle::SP_ArrowBack),
+    toolbar.addAction(BasilWeb::leftArrowIcon,
                       "Back",
                       [&]{ Web.back(); });
-    toolbar.addAction(QApplication::style()->standardIcon(QStyle::SP_ArrowForward),
+    toolbar.addAction(BasilWeb::rightArrowIcon,
                       "Forward",
                       [&]{ Web.forward(); });
-    toolbar.addAction(QApplication::style()->standardIcon(QStyle::SP_BrowserReload),
+    toolbar.addAction(BasilWeb::circleArrowIcon,
                       "Reload",
                       [&]{ Web.reload(); });
+    toolbar.addAction(BasilWeb::homeIcon,
+                      "Home",
+                      [&]{ Web.load(default_url); });
     toolbar.addSeparator();
     toolbar.addWidget(&urlline);
+    toolbar.addSeparator();
 
     auto* menu = new QMenu();
     QAction* act;
@@ -81,6 +87,8 @@ void WebViewer::settingUrlLine()
             if(path.startsWith("www.")){ path.push_front("http://"); }
             Web.load(path);
             });
+    urlline.addAction(&securityAction, QLineEdit::LeadingPosition);
+    urlline.addAction(&favoriteAction, QLineEdit::TrailingPosition);
 }
 
 void WebViewer::settingProgressBar()
@@ -98,7 +106,7 @@ void WebViewer::settingProgressBar()
             });
 }
 
-void WebViewer::settingWebBrowser()
+void WebViewer::settingWebBrowser(QTabWidget* tab)
 {
     layout->addWidget(&Web, 3, 0);
     setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
@@ -106,20 +114,23 @@ void WebViewer::settingWebBrowser()
             [&](auto&& ok){ if(ok){
             auto&& url = Web.url().toString();
             urlline.setText(url);
-                if(url.startsWith("http://"))
-                {
-                    urlline.addAction(
-                            QApplication::style()->standardIcon(QStyle::SP_MessageBoxWarning),
-                            QLineEdit::LeadingPosition);
+                if(url.startsWith("https://")) {
+                    securityAction.setIcon(BasilWeb::lockIcon);
                 }
+                else {
+                    securityAction.setIcon(BasilWeb::warningIcon);
+                }
+                setStar();
             } });
+    settingSecurityAction();
+    settingFavoriteAction(tab);
 
     connect(Web.page()->profile(), &QWebEngineProfile::downloadRequested, this,
             [&](auto&& item){
             QMessageBox msgbox;
             msgbox.setText("Download?");
             msgbox.setInformativeText(
-                    "Download " + item->url().toString().toStdString() + "?");
+                    "Download " + item->url().toString() + "?");
             msgbox.setStandardButtons(QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
             msgbox.setDefaultButton(QMessageBox::Yes);
             int is_download = msgbox.exec();
@@ -132,7 +143,80 @@ void WebViewer::settingWebBrowser()
             });
 }
 
+void WebViewer::settingSecurityAction()
+{
+    securityAction.setCheckable(true);
+    connect(&securityAction, &QAction::toggled, this,
+            [&](bool b){
+                std::cout << "***************************************" << std::endl;
+            });
+}
+void WebViewer::settingFavoriteAction(QTabWidget* tab)
+{
+    favoriteAction.setCheckable(true);
+    connect(&favoriteAction, &QAction::toggled, this,
+            [&](bool is_star){
+                QJsonArray array{};
+                if(BasilWeb::logJson["favorite"].isArray()){
+                    array = BasilWeb::logJson.value("favorite").toArray();
+                }
+                if(is_star){
+                    favoriteAction.setIcon(BasilWeb::starIcon);
+                    if(!array.contains(urlline.text())){
+                        array.append(urlline.text());
+                        BasilWeb::logJson["favorite"] = array;
+                    }
+                }
+                else{
+                    favoriteAction.setIcon(BasilWeb::starHoleIcon);
+                    if(array.contains(urlline.text())){
+                        for(auto&& i = 0;i < array.count();i++) {
+                            if(array.at(i).toString() == urlline.text()) {
+                                array.removeAt(i);
+                            }
+                        }
+                        BasilWeb::logJson["favorite"] = array;
+                    }
+                }
+                std::cout << qPrintable(QJsonDocument{BasilWeb::logJson}.toJson(QJsonDocument::Compact)) << std::endl;
+            });
+    connect(tab, &QTabWidget::currentChanged, this,
+            [=](int index){
+                setStar();
+            });
+}
+
+void WebViewer::setStar()
+{
+    if(BasilWeb::logJson.value("favorite").isArray()){
+        auto&& favorite = BasilWeb::logJson.value("favorite").toArray();
+        if(favorite.contains(urlline.text())){
+            favoriteAction.setIcon(BasilWeb::starIcon);
+            favoriteAction.setChecked(true);
+        }
+        else{
+            favoriteAction.setIcon(BasilWeb::starHoleIcon);
+            favoriteAction.setChecked(false);
+        }
+    }
+    else{
+        favoriteAction.setIcon(BasilWeb::starHoleIcon);
+        favoriteAction.setChecked(false);
+    }
+}
+
 // BasilWeb class
+QIcon BasilWeb::lockIcon{};
+QIcon BasilWeb::rightArrowIcon{};
+QIcon BasilWeb::leftArrowIcon{};
+QIcon BasilWeb::circleArrowIcon{};
+QIcon BasilWeb::warningIcon{};
+QIcon BasilWeb::homeIcon{};
+QIcon BasilWeb::settingIcon{};
+QIcon BasilWeb::starIcon{};
+QIcon BasilWeb::starHoleIcon{};
+
+QJsonObject BasilWeb::logJson{};
 
 BasilWeb::BasilWeb(Basilico* _basil):
     QWidget{},
@@ -150,6 +234,38 @@ BasilWeb::BasilWeb(Basilico* _basil):
     auto&& baseobjstyleSheet = basil->getNeoVim().nvim_get_var("basilweb#base_style_sheet");
     auto&& baseStyleSheet = boost::get<String>(baseobjstyleSheet);
     setStyleSheet(QString::fromStdString(baseStyleSheet));
+
+    auto&& path = QDir{__FILE__};
+    path.cd("../..");  // project root path
+    auto&& objicontheme = basil->getNeoVim().nvim_get_var("basilweb#icon_theme");
+    auto&& icon_theme = boost::get<String>(objicontheme);
+    if(icon_theme.size() > 0){ icon_theme.at(0) += ('A' - 'a'); }
+    lockIcon = QIcon{path.absolutePath() +
+        "/img/lock/lock" + QString::fromStdString(icon_theme) + ".png"};
+    rightArrowIcon = QIcon{path.absolutePath() +
+        "/img/arrow/rightArrow" + QString::fromStdString(icon_theme) + ".png"};
+    leftArrowIcon = QIcon{path.absolutePath() +
+        "/img/arrow/leftArrow" + QString::fromStdString(icon_theme) + ".png"};
+    circleArrowIcon = QIcon{path.absolutePath() +
+        "/img/arrow/circleArrow" + QString::fromStdString(icon_theme) + ".png"};
+    warningIcon = QIcon{path.absolutePath() +
+        "/img/warning/warning" + QString::fromStdString(icon_theme) + ".png"};
+    homeIcon = QIcon{path.absolutePath() +
+        "/img/home/home" + QString::fromStdString(icon_theme) + ".png"};
+    settingIcon = QIcon{path.absolutePath() +
+        "/img/setting/setting" + QString::fromStdString(icon_theme) + ".png"};
+    starIcon = QIcon{path.absolutePath() +
+        "/img/star/star" + QString::fromStdString(icon_theme) + ".png"};
+    starHoleIcon = QIcon{path.absolutePath() +
+        "/img/star/starHole" + QString::fromStdString(icon_theme) + ".png"};
+
+    QFile f{path.absolutePath() + "/log/basilweb.json"};
+    if(f.open(QIODevice::ReadOnly))
+    {
+        logJson = QJsonDocument{QJsonDocument::fromJson(f.readAll())}.object();
+    }
+    f.close();
+
     setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
 
     settingTab();
