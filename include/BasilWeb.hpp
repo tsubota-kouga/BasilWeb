@@ -10,6 +10,8 @@
 
 class Basilico;
 
+class BasilWeb;
+
 class WebScreen: public QWebEngineView
 {
 public:
@@ -32,12 +34,36 @@ class WebViewer: public QWidget
 public:
     WebScreen Web;
 
-    WebViewer(Basilico* basil, QTabWidget* tab, QString url);
+    WebViewer(Basilico* basil, BasilWeb* tab, QString url);
 
     void back(){ Web.back(); }
     void forward(){ Web.forward(); }
-    void load(const QUrl& url){ Web.load(url); }
-    void load(const QString& url){ Web.load(QUrl{url}); }
+    void load(QUrl url){ Web.load(url); }
+    void load(QString url){
+        SUconverter(url);
+        Web.load(QUrl{url});
+    }
+    void SUconverter(QString& url){
+        if(url.startsWith("about:")){
+            url[5] = '/';  // : -> /
+            auto&& path = QDir{__FILE__};
+            path.cd("../../");  // root of this project
+            url.prepend("file://" + path.absolutePath() + "/");
+            url.append(".html");
+        }
+        else if(url.startsWith("www.")){ url.prepend("http://"); }
+    }
+    void USconverter(QString& url){
+        auto&& path = QDir{__FILE__};
+        path.cd("../../");  // root of this project
+        if(auto&& prefix = "file://" + path.absolutePath() + "/about/";
+                url.startsWith(prefix))
+        {
+            url.remove(0, prefix.size());
+            url.prepend("about:");
+            url.remove(url.size() - 5, 5); // size of ".html"
+        }
+    }
     const QIcon icon(){ return Web.icon(); }
     const QString title(){ return Web.title(); }
 
@@ -49,16 +75,16 @@ public:
 
     String selectedText();
 private:
-    void settingToolBar();
+    void settingToolBar(BasilWeb* web);
 
     void settingUrlLine();
 
     void settingProgressBar();
 
-    void settingWebBrowser(QTabWidget* tab);
+    void settingWebBrowser(QTabWidget& tab);
 
     void settingSecurityAction();
-    void settingFavoriteAction(QTabWidget* tab);
+    void settingFavoriteAction(QTabWidget& tab);
 
     void setStar();
 };
@@ -66,7 +92,9 @@ private:
 class BasilWeb: public BasilPlugin, public QWidget
 {
     QGridLayout web_layout;
+public:
     QTabWidget Tab;
+private:
     String default_url;
     QPushButton addButton;
     String viewerProgressBarStyleSheet;
@@ -92,16 +120,21 @@ public:
     static QIcon settingIcon;
     static QIcon starIcon;
     static QIcon starHoleIcon;
+    static QIcon menuIcon;
 
     static QJsonObject logJson;
+
+    WebViewer* makeNewTabWindow();
 
 protected:
     virtual void execute(Basilico* basil, Array args) override;
 
-    void settingTab();
+    void settingTab(Dictionary& d);
 
-    void settingViewer();
+    void settingViewer(Dictionary& d);
 
     void settingAddButton();
+
+    void setSelected();
 };
 #endif

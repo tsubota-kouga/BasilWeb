@@ -6,7 +6,7 @@
 
 // deque<QWebEngineDownloadItem*> WebViewer::downloaditem{};
 
-WebViewer::WebViewer(Basilico* _basil, QTabWidget* tab, QString url):
+WebViewer::WebViewer(Basilico* _basil, BasilWeb* web, QString url):
     Web{},
     toolbar{this},
     urlline{&toolbar},
@@ -21,27 +21,27 @@ WebViewer::WebViewer(Basilico* _basil, QTabWidget* tab, QString url):
     setLayout(layout);
     setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
 
-    settingToolBar();
+    settingToolBar(web);
 
     settingUrlLine();
 
     settingProgressBar();
 
-    settingWebBrowser(tab);
+    settingWebBrowser(web->Tab);
 
-    // <parent tab>
+    // <parent>
     connect(&Web, &QWebEngineView::titleChanged, this,
             [=](auto&& title){
-            int index = tab->indexOf(this);
-            tab->setTabText(index, title);
+            int index = web->Tab.indexOf(this);
+            web->Tab.setTabText(index, title);
             });
     connect(&Web, &QWebEngineView::iconChanged, this,
             [=](auto&& icon){
-            int index = tab->indexOf(this);
-            tab->setTabIcon(index, icon);
+            int index = web->Tab.indexOf(this);
+            web->Tab.setTabIcon(index, icon);
             });
-    // </parent tab>
-    Web.load(default_url);
+    // </parent>
+    load(default_url);
 }
 
 String WebViewer::selectedText()
@@ -49,7 +49,7 @@ String WebViewer::selectedText()
     return Web.selectedText().toStdString();
 }
 
-void WebViewer::settingToolBar()
+void WebViewer::settingToolBar(BasilWeb* web)
 {
     layout->addWidget(&toolbar, 1, 0, 1, 1);
     toolbar.addAction(BasilWeb::leftArrowIcon,
@@ -63,17 +63,37 @@ void WebViewer::settingToolBar()
                       [&]{ Web.reload(); });
     toolbar.addAction(BasilWeb::homeIcon,
                       "Home",
-                      [&]{ Web.load(default_url); });
+                      [&]{ load(default_url); });
     toolbar.addSeparator();
     toolbar.addWidget(&urlline);
     toolbar.addSeparator();
+    toolbar.addAction(BasilWeb::settingIcon,
+                      "Setting",
+                      [=]{
+                        auto&& t = web->makeNewTabWindow();
+                        t->load("about:config");
+                      });
 
     auto* menu = new QMenu();
     QAction* act;
     act = new QAction{"Quit"};
     connect(act, &QAction::triggered, this, [&]{ basil->getNeoVim().nvim_command("quit"); });
     menu->addAction(act);
+    act = new QAction{"History"};
+    connect(act, &QAction::triggered, this, [&]{  });
+    menu->addAction(act);
+    act = new QAction{"Favorite"};
+    connect(act, &QAction::triggered, this, [&]{  });
+    menu->addAction(act);
+    act = new QAction{"Setting"};
+    connect(act, &QAction::triggered, this,
+            [=]{
+                auto&& t = web->makeNewTabWindow();
+                t->load("about:config");
+            });
+    menu->addAction(act);
     auto* settingMenu = new QToolButton{};
+    settingMenu->setIcon(BasilWeb::menuIcon);
     toolbar.addWidget(settingMenu);
     settingMenu->setMenu(menu);
     settingMenu->setPopupMode(QToolButton::InstantPopup);
@@ -82,11 +102,7 @@ void WebViewer::settingToolBar()
 void WebViewer::settingUrlLine()
 {
     connect(&urlline, &QLineEdit::returnPressed, this,
-            [&](){
-            auto&& path = urlline.text();
-            if(path.startsWith("www.")){ path.push_front("http://"); }
-            Web.load(path);
-            });
+            [&](){ load(urlline.text()); });
     urlline.addAction(&securityAction, QLineEdit::LeadingPosition);
     urlline.addAction(&favoriteAction, QLineEdit::TrailingPosition);
 }
@@ -106,19 +122,20 @@ void WebViewer::settingProgressBar()
             });
 }
 
-void WebViewer::settingWebBrowser(QTabWidget* tab)
+void WebViewer::settingWebBrowser(QTabWidget& tab)
 {
     layout->addWidget(&Web, 3, 0);
     setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
     connect(&Web, &QWebEngineView::loadFinished, this,
             [&](auto&& ok){ if(ok){
-            auto&& url = Web.url().toString();
-            urlline.setText(url);
-                if(url.startsWith("https://")) {
-                    securityAction.setIcon(BasilWeb::lockIcon);
+                auto&& url = Web.url().toString();
+                USconverter(url);
+                urlline.setText(url);
+                if(url.startsWith("http://")) {
+                    securityAction.setIcon(BasilWeb::warningIcon);
                 }
                 else {
-                    securityAction.setIcon(BasilWeb::warningIcon);
+                    securityAction.setIcon(BasilWeb::lockIcon);
                 }
                 setStar();
             } });
@@ -151,7 +168,7 @@ void WebViewer::settingSecurityAction()
                 std::cout << "***************************************" << std::endl;
             });
 }
-void WebViewer::settingFavoriteAction(QTabWidget* tab)
+void WebViewer::settingFavoriteAction(QTabWidget& tab)
 {
     favoriteAction.setCheckable(true);
     connect(&favoriteAction, &QAction::toggled, this,
@@ -180,7 +197,7 @@ void WebViewer::settingFavoriteAction(QTabWidget* tab)
                 }
                 std::cout << qPrintable(QJsonDocument{BasilWeb::logJson}.toJson(QJsonDocument::Compact)) << std::endl;
             });
-    connect(tab, &QTabWidget::currentChanged, this,
+    connect(&tab, &QTabWidget::currentChanged, this,
             [=](int index){
                 setStar();
             });
@@ -215,13 +232,14 @@ QIcon BasilWeb::homeIcon{};
 QIcon BasilWeb::settingIcon{};
 QIcon BasilWeb::starIcon{};
 QIcon BasilWeb::starHoleIcon{};
+QIcon BasilWeb::menuIcon{};
 
 QJsonObject BasilWeb::logJson{};
 
 BasilWeb::BasilWeb(Basilico* _basil):
     QWidget{},
-    web_layout{},
     BasilPlugin{},
+    web_layout{},
     Tab{},
     addButton{"+"},
     basil{_basil}
@@ -231,14 +249,23 @@ BasilWeb::BasilWeb(Basilico* _basil):
     web_layout.setContentsMargins(0, 0, 0, 0);
     setLayout(&web_layout);
     web_layout.addWidget(&Tab, 0, 0);
-    auto&& baseobjstyleSheet = basil->getNeoVim().nvim_get_var("basilweb#base_style_sheet");
-    auto&& baseStyleSheet = boost::get<String>(baseobjstyleSheet);
-    setStyleSheet(QString::fromStdString(baseStyleSheet));
+
+    auto&& obj_setting_dict = basil->getNeoVim().nvim_get_var("basilweb#setting_dict");
+    auto&& setting_dict = boost::get<Dictionary>(obj_setting_dict);
+    auto&& ret = setting_dict.equal_range("base_style_sheet");
+    for(auto&& it = ret.first;it != ret.second;++it)
+    {
+        setStyleSheet(QString::fromStdString(boost::get<String>(it->second)));
+    }
 
     auto&& path = QDir{__FILE__};
     path.cd("../..");  // project root path
-    auto&& objicontheme = basil->getNeoVim().nvim_get_var("basilweb#icon_theme");
-    auto&& icon_theme = boost::get<String>(objicontheme);
+    String icon_theme = "";
+    auto&& [icon_b, icon_e] = setting_dict.equal_range("icon_theme");
+    for(auto&& it = icon_b;it != icon_e;++it)
+    {
+        icon_theme = boost::get<String>(it->second);
+    }
     if(icon_theme.size() > 0){ icon_theme.at(0) += ('A' - 'a'); }
     lockIcon = QIcon{path.absolutePath() +
         "/img/lock/lock" + QString::fromStdString(icon_theme) + ".png"};
@@ -258,6 +285,8 @@ BasilWeb::BasilWeb(Basilico* _basil):
         "/img/star/star" + QString::fromStdString(icon_theme) + ".png"};
     starHoleIcon = QIcon{path.absolutePath() +
         "/img/star/starHole" + QString::fromStdString(icon_theme) + ".png"};
+    menuIcon = QIcon{path.absolutePath() +
+        "/img/menu/menu" + QString::fromStdString(icon_theme) + ".png"};
 
     QFile f{path.absolutePath() + "/log/basilweb.json"};
     if(f.open(QIODevice::ReadOnly))
@@ -268,9 +297,9 @@ BasilWeb::BasilWeb(Basilico* _basil):
 
     setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
 
-    settingTab();
+    settingTab(setting_dict);
 
-    settingViewer();
+    settingViewer(setting_dict);
 
     settingAddButton();
 }
@@ -333,49 +362,63 @@ std::vector<String> BasilWeb::selectedTextVector()
     return textVector;
 }
 
+WebViewer* BasilWeb::makeNewTabWindow()
+{
+    auto* Viewer = new WebViewer{basil, this, QString::fromStdString(default_url)};
+    Viewer->progressbarSetStyleSheet(viewerProgressBarStyleSheet);
+    Viewer->toolbarSetStyleSheet(viewerToolBarStyleSheet);
+    Viewer->setParent(&Tab);
+    int idx = Tab.addTab(Viewer, Viewer->icon(), Viewer->title());
+    Tab.setCurrentIndex(idx);
+    return Viewer;
+}
+
 void BasilWeb::execute(Basilico* basil, Array args)
 {
     if(boost::get<String>(args.at(1)) == "selectedTextVector")
     {
-        auto list = selectedTextVector();
-        Array info;
-        for(auto&& c:list)
-        {
-            info.push_back(Object{c});
-        }
-        basil->getNeoVim().nvim_set_var(
-                "basilweb#selected_text_list", info);
+        setSelected();
     }
 }
 
-void BasilWeb::settingTab()
+void BasilWeb::settingTab(Dictionary& d)
 {
-    auto&& objStyleSheet = basil->getNeoVim().nvim_get_var("basilweb#tab_style_sheet");
-    auto&& styleSheet = boost::get<String>(objStyleSheet);
-    Tab.setStyleSheet(QString::fromStdString(styleSheet));
+    auto&& [tss_b, tss_e] = d.equal_range("tab_style_sheet");
+    for(auto&& it = tss_b;it != tss_e;++it)
+    {
+        Tab.setStyleSheet(QString::fromStdString(boost::get<String>(it->second)));
+    }
     Tab.setTabsClosable(true);
     Tab.setMovable(true);
     Tab.setCornerWidget(&addButton);
     connect(&Tab, &QTabWidget::tabCloseRequested, this,
             [&](int idx){
-            if(Tab.count() == 1){ return; }
-            Tab.removeTab(idx);
+                if(Tab.count() == 1){ return; }
+                Tab.removeTab(idx);
             });
 }
 
-void BasilWeb::settingViewer()
+void BasilWeb::settingViewer(Dictionary& d)
 {
-    auto&& obj_default_url = basil->getNeoVim().nvim_get_var("basilweb#default_url");
-    default_url = boost::get<String>(obj_default_url);
-    auto* Viewer = new WebViewer{basil, &Tab, QString::fromStdString(default_url)};
+    auto&& [url_b, url_e] = d.equal_range("default_url");
+    for(auto&& it = url_b;it != url_e;++it)
+    {
+        default_url = boost::get<String>(it->second);
+    }
+    auto* Viewer = new WebViewer{basil, this, QString::fromStdString(default_url)};
 
-    auto&& pobjStyleSheet = basil->getNeoVim().nvim_get_var("basilweb#progressbar_style_sheet");
-    viewerProgressBarStyleSheet = boost::get<String>(pobjStyleSheet);
-    Viewer->progressbarSetStyleSheet(viewerProgressBarStyleSheet);
+    auto&& [pss_b, pss_e] = d.equal_range("progressbar_style_sheet");
+    for(auto&& it = pss_b;it != pss_e;++it)
+    {
+        viewerProgressBarStyleSheet = boost::get<String>(it->second);
+        Viewer->progressbarSetStyleSheet(viewerProgressBarStyleSheet);
+    }
 
-    auto&& tobjstyleSheet = basil->getNeoVim().nvim_get_var("basilweb#toolbar_style_sheet");
-    viewerToolBarStyleSheet = boost::get<String>(tobjstyleSheet);
-    Viewer->toolbarSetStyleSheet(viewerToolBarStyleSheet);
+    auto&& [tss_b, tss_e] = d.equal_range("toolbar_style_sheet");
+    for(auto&& it = tss_b;it != tss_e;++it)
+    {
+        Viewer->toolbarSetStyleSheet(boost::get<String>(it->second));
+    }
 
     Viewer->setParent(&Tab);
     Tab.addTab(Viewer, Viewer->icon(), Viewer->title());
@@ -384,12 +427,17 @@ void BasilWeb::settingViewer()
 void BasilWeb::settingAddButton()
 {
     connect(&addButton, &QPushButton::clicked, &Tab,
-            [&](){
-                auto* Viewer = new WebViewer{basil, &Tab, QString::fromStdString(default_url)};
-                Viewer->progressbarSetStyleSheet(viewerProgressBarStyleSheet);
-                Viewer->toolbarSetStyleSheet(viewerToolBarStyleSheet);
-                Viewer->setParent(&Tab);
-                int idx = Tab.addTab(Viewer, Viewer->icon(), Viewer->title());
-                Tab.setCurrentIndex(idx);
-            });
+            [&](){ makeNewTabWindow(); });
+}
+
+void BasilWeb::setSelected()
+{
+    auto list = selectedTextVector();
+    Array info;
+    for(auto&& c:list)
+    {
+        info.push_back(Object{c});
+    }
+    basil->getNeoVim().nvim_set_var(
+            "basilweb#selected_text_list", info);
 }
