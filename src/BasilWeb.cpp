@@ -1,6 +1,39 @@
 
 #include "BasilWeb.hpp"
 
+// WebScreen class
+
+WebScreen::WebScreen(QWidget* parent):
+    QWebEngineView{parent}
+{
+    QApplication::instance()->installEventFilter(this);
+}
+
+bool WebScreen::eventFilter(QObject* obj, QEvent* e)
+{
+    if(obj->parent() == this)
+    {
+        switch (e->type())
+        {
+            case QEvent::MouseButtonPress:
+                if(static_cast<QMouseEvent*>(e)->button() == Qt::ForwardButton)
+                {
+                    forward();
+                    return true;
+                }
+                else if(static_cast<QMouseEvent*>(e)->button() == Qt::BackButton)
+                {
+                    back();
+                    return true;
+                }
+            default:
+                return false;
+        }
+    }
+    return false;
+}
+
+
 // WebViewer class
 
 // deque<QWebEngineDownloadItem*> WebViewer::downloaditem{};

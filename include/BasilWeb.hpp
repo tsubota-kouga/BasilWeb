@@ -12,6 +12,14 @@ class Basilico;
 
 class BasilWeb;
 
+class WebScreen: public QWebEngineView
+{
+public:
+    WebScreen(QWidget* parent=nullptr);
+    protected:
+    bool eventFilter(QObject* obj, QEvent* e) override;
+};
+
 class WebViewer: public QWidget
 {
     QGridLayout* layout;
@@ -25,7 +33,7 @@ class WebViewer: public QWidget
     BasilWeb* parent;
     // static deque<QWebEngineDownloadItem*> downloaditem;
 public:
-    QWebEngineView Web;
+    WebScreen Web;
 
     WebViewer(Basilico* basil, BasilWeb* tab, QString url);
 
