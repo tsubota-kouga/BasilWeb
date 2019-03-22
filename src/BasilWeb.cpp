@@ -1,7 +1,6 @@
 
 #include "BasilWeb.hpp"
 
-
 // WebViewer class
 
 // deque<QWebEngineDownloadItem*> WebViewer::downloaditem{};
@@ -14,31 +13,36 @@ WebViewer::WebViewer(Basilico* _basil, BasilWeb* web, QString url):
     securityAction{"Security"},
     favoriteAction{"Favorite"},
     progressbar{},
-    basil{_basil}
+    basil{_basil},
+    parent{web}
 {
     layout = new QGridLayout();
     layout->setContentsMargins(0, 0, 0, 0);
     setLayout(layout);
     setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
 
-    settingToolBar(web);
+    settingToolBar();
 
     settingUrlLine();
 
     settingProgressBar();
 
-    settingWebBrowser(web->Tab);
+    settingWebBrowser();
 
     // <parent>
     connect(&Web, &QWebEngineView::titleChanged, this,
             [=](auto&& title){
-            int index = web->Tab.indexOf(this);
-            web->Tab.setTabText(index, title);
+            int index = parent->Tab.indexOf(this);
+            parent->Tab.setTabText(index, title);
             });
     connect(&Web, &QWebEngineView::iconChanged, this,
             [=](auto&& icon){
-            int index = web->Tab.indexOf(this);
-            web->Tab.setTabIcon(index, icon);
+            int index = parent->Tab.indexOf(this);
+            parent->Tab.setTabIcon(index, icon);
+            });
+    connect(&Web, &QWebEngineView::loadFinished, this,
+            [&]{
+            Web.page()->runJavaScript(parent->getjQuery());
             });
     // </parent>
     load(default_url);
@@ -49,7 +53,7 @@ String WebViewer::selectedText()
     return Web.selectedText().toStdString();
 }
 
-void WebViewer::settingToolBar(BasilWeb* web)
+void WebViewer::settingToolBar()
 {
     layout->addWidget(&toolbar, 1, 0, 1, 1);
     toolbar.addAction(BasilWeb::leftArrowIcon,
@@ -70,7 +74,7 @@ void WebViewer::settingToolBar(BasilWeb* web)
     toolbar.addAction(BasilWeb::settingIcon,
                       "Setting",
                       [=]{
-                        auto&& t = web->makeNewTabWindow();
+                        auto&& t = parent->makeNewTabWindow();
                         t->load("about:config");
                       });
 
@@ -88,7 +92,7 @@ void WebViewer::settingToolBar(BasilWeb* web)
     act = new QAction{"Setting"};
     connect(act, &QAction::triggered, this,
             [=]{
-                auto&& t = web->makeNewTabWindow();
+                auto&& t = parent->makeNewTabWindow();
                 t->load("about:config");
             });
     menu->addAction(act);
@@ -122,7 +126,7 @@ void WebViewer::settingProgressBar()
             });
 }
 
-void WebViewer::settingWebBrowser(QTabWidget& tab)
+void WebViewer::settingWebBrowser()
 {
     layout->addWidget(&Web, 3, 0);
     setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
@@ -140,7 +144,7 @@ void WebViewer::settingWebBrowser(QTabWidget& tab)
                 setStar();
             } });
     settingSecurityAction();
-    settingFavoriteAction(tab);
+    settingFavoriteAction();
 
     connect(Web.page()->profile(), &QWebEngineProfile::downloadRequested, this,
             [&](auto&& item){
@@ -168,7 +172,7 @@ void WebViewer::settingSecurityAction()
                 std::cout << "***************************************" << std::endl;
             });
 }
-void WebViewer::settingFavoriteAction(QTabWidget& tab)
+void WebViewer::settingFavoriteAction()
 {
     favoriteAction.setCheckable(true);
     connect(&favoriteAction, &QAction::toggled, this,
@@ -197,7 +201,7 @@ void WebViewer::settingFavoriteAction(QTabWidget& tab)
                 }
                 std::cout << qPrintable(QJsonDocument{BasilWeb::logJson}.toJson(QJsonDocument::Compact)) << std::endl;
             });
-    connect(&tab, &QTabWidget::currentChanged, this,
+    connect(&parent->Tab, &QTabWidget::currentChanged, this,
             [=](int index){
                 setStar();
             });
@@ -294,6 +298,8 @@ BasilWeb::BasilWeb(Basilico* _basil):
         logJson = QJsonDocument{QJsonDocument::fromJson(f.readAll())}.object();
     }
     f.close();
+
+    settingjQuery();
 
     setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
 
@@ -440,4 +446,15 @@ void BasilWeb::setSelected()
     }
     basil->getNeoVim().nvim_set_var(
             "basilweb#selected_text_list", info);
+}
+
+void BasilWeb::settingjQuery()
+{
+    auto&& p = QDir{__FILE__};
+    p.cd("../..");
+    QFile f{ p.absolutePath() + "/js/jquery-3.3.1.min.js" };
+    f.open(QIODevice::ReadOnly);
+    jquery = f.readAll();
+    jquery.append("\nvar qt = { 'jQuery': jQuery.noConflict(true) };");
+    f.close();
 }

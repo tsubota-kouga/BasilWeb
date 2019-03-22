@@ -12,14 +12,6 @@ class Basilico;
 
 class BasilWeb;
 
-class WebScreen: public QWebEngineView
-{
-public:
-    WebScreen():
-        QWebEngineView{}
-    {}
-};
-
 class WebViewer: public QWidget
 {
     QGridLayout* layout;
@@ -30,9 +22,10 @@ class WebViewer: public QWidget
     QAction favoriteAction;
     QProgressBar progressbar;
     Basilico* basil;
+    BasilWeb* parent;
     // static deque<QWebEngineDownloadItem*> downloaditem;
 public:
-    WebScreen Web;
+    QWebEngineView Web;
 
     WebViewer(Basilico* basil, BasilWeb* tab, QString url);
 
@@ -75,16 +68,17 @@ public:
 
     String selectedText();
 private:
-    void settingToolBar(BasilWeb* web);
+
+    void settingToolBar();
 
     void settingUrlLine();
 
     void settingProgressBar();
 
-    void settingWebBrowser(QTabWidget& tab);
+    void settingWebBrowser();
 
     void settingSecurityAction();
-    void settingFavoriteAction(QTabWidget& tab);
+    void settingFavoriteAction();
 
     void setStar();
 };
@@ -100,6 +94,7 @@ private:
     String viewerProgressBarStyleSheet;
     String viewerToolBarStyleSheet;
     Basilico* basil;
+    QString jquery;
 public:
     BasilWeb(Basilico* basil);
 
@@ -126,6 +121,7 @@ public:
 
     WebViewer* makeNewTabWindow();
 
+    const QString& getjQuery() const { return jquery; }
 protected:
     virtual void execute(Basilico* basil, Array args) override;
 
@@ -136,5 +132,7 @@ protected:
     void settingAddButton();
 
     void setSelected();
+
+    void settingjQuery();
 };
 #endif
