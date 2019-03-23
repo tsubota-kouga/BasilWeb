@@ -114,7 +114,7 @@ void WebViewer::settingToolBar()
     auto* menu = new QMenu();
     QAction* act;
     act = new QAction{"Quit"};
-    connect(act, &QAction::triggered, this, [&]{ basil->getNeoVim().nvim_command("quit"); });
+    connect(act, &QAction::triggered, this, [&]{ basil->getNeoVim().nvim_command("quit!"); });
     menu->addAction(act);
     act = new QAction{"History"};
     connect(act, &QAction::triggered, this, [&]{  });
