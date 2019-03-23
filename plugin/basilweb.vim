@@ -22,7 +22,10 @@ else
         let g:basilweb#setting_dict['default_url'] = 'https://google.com'
     endif
     if !has_key(g:basilweb#setting_dict, 'tab_style_sheet')
-        let g:basilweb#setting_dict['tab_style_sheet'] = ''
+        let g:basilweb#setting_dict['tab_style_sheet'] =
+                    \ 'QTabBar::tab {
+                    \   text-align: left;
+                    \ }'
     endif
     if !has_key(g:basilweb#setting_dict, 'progressbar_style_sheet')
         let g:basilweb#setting_dict['progressbar_style_sheet'] = ''

@@ -15,6 +15,7 @@ bool WebScreen::eventFilter(QObject* obj, QEvent* e)
     {
         switch (e->type())
         {
+            [[fallthrough]];
             case QEvent::MouseButtonPress:
                 if(static_cast<QMouseEvent*>(e)->button() == Qt::ForwardButton)
                 {
@@ -26,6 +27,26 @@ bool WebScreen::eventFilter(QObject* obj, QEvent* e)
                     back();
                     return true;
                 }
+            [[fallthrough]];
+            case QEvent::Wheel:
+                if(auto* we = static_cast<QWheelEvent*>(e);
+                        we->modifiers() == Qt::ControlModifier)
+                {
+                    auto numDegrees = we->angleDelta() / 8;
+                    if(!numDegrees.isNull())
+                    {
+                        auto&& z = zoomFactor();
+                        if(numDegrees.ry() > 0 and z + 0.1 <= 5)
+                        {
+                            setZoomFactor(z + 0.1);
+                        }
+                        else if(numDegrees.ry() < 0 and 0.25 <= z - 0.1)
+                        {
+                            setZoomFactor(z - 0.1);
+                        }
+                        return true;
+                    }
+                }
             default:
                 return false;
         }
@@ -33,22 +54,41 @@ bool WebScreen::eventFilter(QObject* obj, QEvent* e)
     return false;
 }
 
+void WebScreen::contextMenuEvent(QContextMenuEvent* e)
+{
+    QMenu menu(this);
+    menu.addAction(BasilWeb::leftArrowIcon, "Back", this, &QWebEngineView::back);
+    menu.addAction(BasilWeb::rightArrowIcon, "Forward", this, &QWebEngineView::forward);
+    menu.addAction(BasilWeb::circleArrowIcon, "Reload", this, &QWebEngineView::reload);
+    menu.addAction(BasilWeb::homeIcon, "Home", this,
+                   [&]{ static_cast<WebViewer*>(parent())->home(); });
+    menu.addAction("View Source", this,
+                   [&]{
+                   auto&& t = static_cast<WebViewer*>(parent())->parent->makeNewTabWindow();
+                    t->load("view-source:" + url().toString());
+                   });
+    menu.exec(e->globalPos());
+}
 
 // WebViewer class
 
 // deque<QWebEngineDownloadItem*> WebViewer::downloaditem{};
 
 WebViewer::WebViewer(Basilico* _basil, BasilWeb* web, QString url):
-    Web{},
+    Web{this},
+    QWidget{web},
     toolbar{this},
     urlline{&toolbar},
-    default_url{QUrl{url}},
     securityAction{"Security"},
     favoriteAction{"Favorite"},
     progressbar{},
     basil{_basil},
     parent{web}
 {
+    // allow url == "about:home" etc
+    SUconverter(url);
+    default_url = QUrl{url};
+
     layout = new QGridLayout();
     layout->setContentsMargins(0, 0, 0, 0);
     setLayout(layout);
@@ -111,17 +151,24 @@ void WebViewer::settingToolBar()
                         t->load("about:config");
                       });
 
-    auto* menu = new QMenu();
+    auto* menu = new QMenu{};
     QAction* act;
     act = new QAction{"Quit"};
     connect(act, &QAction::triggered, this, [&]{ basil->getNeoVim().nvim_command("quit!"); });
     menu->addAction(act);
     act = new QAction{"History"};
     connect(act, &QAction::triggered, this, [&]{  });
-    menu->addAction(act);
-    act = new QAction{"Favorite"};
-    connect(act, &QAction::triggered, this, [&]{  });
-    menu->addAction(act);
+    auto* favoriteMenu = new QMenu{"Favorite"};
+    if(BasilWeb::logJson["favorite"].isArray()){
+        auto&& array = BasilWeb::logJson.value("favorite").toArray();
+        for(auto&& url_obj: array)
+        {
+            auto url = url_obj.toString();
+            favoriteMenu->addAction(url, this,
+                    [url, this]{ load(url); });
+        }
+    }
+    menu->addMenu(favoriteMenu);
     act = new QAction{"Setting"};
     connect(act, &QAction::triggered, this,
             [=]{
@@ -233,6 +280,12 @@ void WebViewer::settingFavoriteAction()
                     }
                 }
                 std::cout << qPrintable(QJsonDocument{BasilWeb::logJson}.toJson(QJsonDocument::Compact)) << std::endl;
+                QDir p{__FILE__};
+                p.cd("../..");
+                QFile logfile{p.absolutePath() + "/log/log.json"};
+                logfile.open(QIODevice::WriteOnly);
+                logfile.write(QByteArray{QJsonDocument{BasilWeb::logJson}.toJson()});
+                logfile.close();
             });
     connect(&parent->Tab, &QTabWidget::currentChanged, this,
             [=](int index){
@@ -325,7 +378,7 @@ BasilWeb::BasilWeb(Basilico* _basil):
     menuIcon = QIcon{path.absolutePath() +
         "/img/menu/menu" + QString::fromStdString(icon_theme) + ".png"};
 
-    QFile f{path.absolutePath() + "/log/basilweb.json"};
+    QFile f{path.absolutePath() + "/log/log.json"};
     if(f.open(QIODevice::ReadOnly))
     {
         logJson = QJsonDocument{QJsonDocument::fromJson(f.readAll())}.object();

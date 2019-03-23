@@ -2,3 +2,4 @@ rplugin/python3/deoplete/sources/__pycache__
 log/**
 blend/*.blend1
 js/
+firefox-devtools/

@@ -16,8 +16,9 @@ class WebScreen: public QWebEngineView
 {
 public:
     WebScreen(QWidget* parent=nullptr);
-    protected:
+protected:
     bool eventFilter(QObject* obj, QEvent* e) override;
+    void contextMenuEvent(QContextMenuEvent* e) override;
 };
 
 class WebViewer: public QWidget
@@ -30,9 +31,9 @@ class WebViewer: public QWidget
     QAction favoriteAction;
     QProgressBar progressbar;
     Basilico* basil;
-    BasilWeb* parent;
     // static deque<QWebEngineDownloadItem*> downloaditem;
 public:
+    BasilWeb* parent;
     WebScreen Web;
 
     WebViewer(Basilico* basil, BasilWeb* tab, QString url);
@@ -44,6 +45,7 @@ public:
         SUconverter(url);
         Web.load(QUrl{url});
     }
+    void home(){ load(default_url); }
     void SUconverter(QString& url){
         if(url.startsWith("about:")){
             url[5] = '/';  // : -> /
