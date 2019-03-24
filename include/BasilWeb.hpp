@@ -31,6 +31,7 @@ class WebViewer: public QWidget
     QAction favoriteAction;
     QProgressBar progressbar;
     Basilico* basil;
+    QMenu* favoriteMenu;
     // static deque<QWebEngineDownloadItem*> downloaditem;
 public:
     BasilWeb* parent;

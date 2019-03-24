@@ -168,7 +168,9 @@ void WebViewer::settingToolBar()
     menu->addAction(act);
     act = new QAction{"History"};
     connect(act, &QAction::triggered, this, [&]{  });
-    auto* favoriteMenu = new QMenu{"Favorite"};
+    menu->addAction(act);
+
+    favoriteMenu = new QMenu{"Favorite"};
     if(BasilWeb::logJson["favorite"].isArray()){
         auto&& array = BasilWeb::logJson.value("favorite").toArray();
         for(auto&& url_obj: array)
@@ -179,6 +181,7 @@ void WebViewer::settingToolBar()
         }
     }
     menu->addMenu(favoriteMenu);
+
     act = new QAction{"Setting"};
     connect(act, &QAction::triggered, this,
             [=]{
@@ -288,6 +291,14 @@ void WebViewer::settingFavoriteAction()
                         }
                         BasilWeb::logJson["favorite"] = array;
                     }
+                }
+                // update favoriteMenu
+                favoriteMenu->clear();
+                for(auto&& url_obj: array)
+                {
+                    auto url = url_obj.toString();
+                    favoriteMenu->addAction(url, this,
+                            [url, this]{ load(url); });
                 }
                 std::cout << qPrintable(QJsonDocument{BasilWeb::logJson}.toJson(QJsonDocument::Compact)) << std::endl;
                 QDir p{__FILE__};
