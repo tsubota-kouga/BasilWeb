@@ -143,6 +143,6 @@ protected:
 
     void setSelected();
 
-    void settingjQuery();
+    void settingJS();
 };
 #endif

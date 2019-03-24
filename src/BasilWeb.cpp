@@ -35,14 +35,24 @@ bool WebScreen::eventFilter(QObject* obj, QEvent* e)
                     auto numDegrees = we->angleDelta() / 8;
                     if(!numDegrees.isNull())
                     {
-                        auto&& z = zoomFactor();
-                        if(numDegrees.ry() > 0 and z + 0.1 <= 5)
+                        int z = static_cast<int>(zoomFactor() * 10);
+                        if(numDegrees.ry() > 0 and (z + 1) / 10. <= 5)
                         {
-                            setZoomFactor(z + 0.1);
+                            page()->runJavaScript(QString::fromStdString(
+                                "notify(qt.jQuery, '"
+                                + std::to_string((z + 1) * 10)
+                                + "' + '%');"
+                                ));
+                            setZoomFactor((z + 1) / 10.);
                         }
-                        else if(numDegrees.ry() < 0 and 0.25 <= z - 0.1)
+                        else if(numDegrees.ry() < 0 and 0.25 <= (z - 1)/10.)
                         {
-                            setZoomFactor(z - 0.1);
+                            page()->runJavaScript(QString::fromStdString(
+                                "notify(qt.jQuery, '"
+                                + std::to_string((z - 1) * 10)
+                                + "' + '%');"
+                                ));
+                            setZoomFactor((z - 1) / 10.);
                         }
                         return true;
                     }
@@ -385,7 +395,7 @@ BasilWeb::BasilWeb(Basilico* _basil):
     }
     f.close();
 
-    settingjQuery();
+    settingJS();
 
     setSizePolicy(QSizePolicy{QSizePolicy::Expanding, QSizePolicy::Expanding});
 
@@ -534,13 +544,22 @@ void BasilWeb::setSelected()
             "basilweb#selected_text_list", info);
 }
 
-void BasilWeb::settingjQuery()
+void BasilWeb::settingJS()
 {
     auto&& p = QDir{__FILE__};
     p.cd("../..");
-    QFile f{ p.absolutePath() + "/js/jquery-3.3.1.min.js" };
-    f.open(QIODevice::ReadOnly);
-    jquery = f.readAll();
-    jquery.append("\nvar qt = { 'jQuery': jQuery.noConflict(true) };");
-    f.close();
+    {
+        QFile f{ p.absolutePath() + "/js/jquery/jquery-3.3.1.min.js" };
+        f.open(QIODevice::ReadOnly);
+        jquery = f.readAll();
+        jquery.append("\nvar qt = { 'jQuery': jQuery.noConflict(true) };");
+        f.close();
+    }
+    {
+        QFile f{ p.absolutePath() + "/js/notify.js" };
+        f.open(QIODevice::ReadOnly);
+        auto&& notifyjs = f.readAll();
+        jquery.append(notifyjs);
+        f.close();
+    }
 }
