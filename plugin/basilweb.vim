@@ -6,8 +6,8 @@ endif
 let g:loaded_basilweb = 1
 setlocal runtimepath+=.
 
-let s:save_cpo = &cpo
-set cpo&vim
+let s:save_cpo = &cpoptions
+set cpoptions&vim
 
 if !exists('g:basilweb#setting_dict')
     let g:basilweb#setting_dict = {
@@ -43,20 +43,20 @@ if !exists('g:basilweb#color_scheme')
 endif
 
 if exists('g:basilweb#color_scheme')
-    if g:basilweb#color_scheme == 'light'
-        if g:basilweb#setting_dict['base_style_sheet'] == ''
+    if g:basilweb#color_scheme ==# 'light'
+        if g:basilweb#setting_dict['base_style_sheet'] ==# ''
             let g:basilweb#setting_dict['base_style_sheet'] =
                         \ 'color:#000000;background-color: #ffffff;'
             let g:basilweb#setting_dict['icon_theme'] = 'black'
         endif
-    elseif g:basilweb#color_scheme == 'dark'
-        if g:basilweb#setting_dict['base_style_sheet'] == ''
+    elseif g:basilweb#color_scheme ==# 'dark'
+        if g:basilweb#setting_dict['base_style_sheet'] ==# ''
             let g:basilweb#setting_dict['base_style_sheet'] =
                         \ 'color: #ffffff;background-color: #444444;'
             let g:basilweb#setting_dict['icon_theme'] = 'light'
         endif
-    elseif g:basilweb#color_scheme == 'black'
-        if g:basilweb#setting_dict['base_style_sheet'] == ''
+    elseif g:basilweb#color_scheme ==# 'black'
+        if g:basilweb#setting_dict['base_style_sheet'] ==# ''
             let g:basilweb#setting_dict['base_style_sheet'] =
                         \ 'color:#ffffff;background-color: #000000;'
             let g:basilweb#setting_dict['icon_theme'] = 'light'
@@ -71,5 +71,5 @@ command! -nargs=? WebBasil call basilweb#web_start(<f-args>)
 command! -nargs=0 WebBasilC call basilweb#openweb_with_cursor_url()
 
 
-let &cpo = s:save_cpo
+let &cpoptions = s:save_cpo
 unlet s:save_cpo
