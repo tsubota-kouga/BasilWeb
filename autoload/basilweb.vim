@@ -4,8 +4,8 @@ if !exists('g:loaded_basilweb')
     finish
 endif
 
-let s:save_cpo = &cpo
-set cpo&vim
+let s:save_cpo = &cpoptions
+set cpoptions&vim
 
 function! basilweb#web_start(...)
     if a:0 == 1
@@ -18,7 +18,7 @@ function! basilweb#web_start(...)
 endfunction
 
 function! s:is_url(str) abort
-    if a:str =~ '^https\?://'  " str is url
+    if a:str =~# '^https\?://'  " str is url
         return v:true
     endif
     return v:false
@@ -35,6 +35,6 @@ function! basilweb#openweb_with_cursor_url(...) abort
     endif
 endfunction
 
-let &cpo = s:save_cpo
+let &cpoptions = s:save_cpo
 unlet s:save_cpo
 
