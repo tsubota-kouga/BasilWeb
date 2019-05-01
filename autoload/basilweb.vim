@@ -8,8 +8,10 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 function! basilweb#web_start(...)
-    if a:0 > 0
-        call rpcnotify(0, 'NeoVim#plugin', 'BasilWeb', 'factory', a:1)
+    if a:0 == 1
+        call rpcnotify(0, 'NeoVim#plugin', 'BasilWeb', 'factory', a:1) " with url
+    elseif a:0 == 2
+        call rpcnotify(0, 'NeoVim#plugin', 'BasilWeb', 'factory', a:1, a:2) " with url and plugin type
     else
         call rpcnotify(0, 'NeoVim#plugin', 'BasilWeb', 'factory')
     endif
@@ -22,10 +24,14 @@ function! s:is_url(str) abort
     return v:false
 endfunction
 
-function! basilweb#openweb_with_cursor_url() abort
+function! basilweb#openweb_with_cursor_url(...) abort
     let str = expand('<cfile>')
     if s:is_url(str)
-        call basilweb#web_start(str)
+        if a:0 > 0 " with plugin type
+            call basilweb#web_start(str, a:1)
+        else
+            call basilweb#web_start(str)
+        endif
     endif
 endfunction
 

@@ -164,7 +164,10 @@ void WebViewer::settingToolBar()
     auto* menu = new QMenu{};
     QAction* act;
     act = new QAction{"Quit"};
-    connect(act, &QAction::triggered, this, [&]{ basil->getNeoVim().nvim_command("quit!"); });
+    connect(act, &QAction::triggered, this,
+            [&]{
+                basil->killPlugin(parent);
+            });
     menu->addAction(act);
     act = new QAction{"History"};
     connect(act, &QAction::triggered, this, [&]{  });
@@ -344,6 +347,7 @@ QIcon BasilWeb::settingIcon{};
 QIcon BasilWeb::starIcon{};
 QIcon BasilWeb::starHoleIcon{};
 QIcon BasilWeb::menuIcon{};
+QIcon BasilWeb::plusIcon{};
 
 QJsonObject BasilWeb::logJson{};
 
@@ -352,7 +356,7 @@ BasilWeb::BasilWeb(Basilico* _basil):
     BasilPlugin{},
     web_layout{},
     Tab{},
-    addButton{"+"},
+    addButton{this},
     basil{_basil}
 {
     installEventFilter(this);
@@ -398,12 +402,19 @@ BasilWeb::BasilWeb(Basilico* _basil):
         "/img/star/starHole" + QString::fromStdString(icon_theme) + ".png"};
     menuIcon = QIcon{path.absolutePath() +
         "/img/menu/menu" + QString::fromStdString(icon_theme) + ".png"};
+    plusIcon = QIcon{path.absolutePath() +
+        "/img/plus/plus" + QString::fromStdString(icon_theme) + ".png"};
 
     QFile f{path.absolutePath() + "/log/log.json"};
     if(f.open(QIODevice::ReadOnly))
     {
         logJson = QJsonDocument{QJsonDocument::fromJson(f.readAll())}.object();
     }
+
+    addButton.setIcon(plusIcon);
+    addButton.setText("Add Tab");
+    addButton.setToolButtonStyle(Qt::ToolButtonIconOnly);
+
     f.close();
 
     settingJS();
@@ -425,14 +436,17 @@ BasilWeb::BasilWeb(Basilico* basil, String url):
 
 std::pair<BasilWeb*, String> BasilWeb::factory(Basilico* basil, Array args)
 {
-    if(args.size() <= 2)
-    {
+    if(args.size() <= 2) {
         return std::make_pair(new BasilWeb{basil}, "tab");
     }
-    else
-    {
+    else if(args.size() == 3) { // with url
         String url = boost::get<String>(args.at(2));
-        return std::make_pair(new BasilWeb{basil, url}, "tab");
+        return std::make_pair(new BasilWeb{basil, url}, "split");
+    }
+    else {
+        String url = boost::get<String>(args.at(2));
+        String plugin_type = boost::get<String>(args.at(3));
+        return std::make_pair(new BasilWeb{basil, url}, plugin_type);
     }
 }
 
@@ -568,6 +582,13 @@ void BasilWeb::settingJS()
     }
     {
         QFile f{ p.absolutePath() + "/js/notify.js" };
+        f.open(QIODevice::ReadOnly);
+        auto&& notifyjs = f.readAll();
+        jquery.append(notifyjs);
+        f.close();
+    }
+    {
+        QFile f{ p.absolutePath() + "/js/search.js" };
         f.open(QIODevice::ReadOnly);
         auto&& notifyjs = f.readAll();
         jquery.append(notifyjs);

@@ -47,6 +47,8 @@ public:
         Web.load(QUrl{url});
     }
     void home(){ load(default_url); }
+
+    // imaginary url -> url converter
     void SUconverter(QString& url){
         if(url.startsWith("about:")){
             url[5] = '/';  // : -> /
@@ -57,6 +59,7 @@ public:
         }
         else if(url.startsWith("www.")){ url.prepend("http://"); }
     }
+    // url -> imaginary string converter
     void USconverter(QString& url){
         auto&& path = QDir{__FILE__};
         path.cd("../../");  // root of this project
@@ -101,7 +104,7 @@ public:
     QTabWidget Tab;
 private:
     String default_url;
-    QPushButton addButton;
+    QToolButton addButton;
     String viewerProgressBarStyleSheet;
     String viewerToolBarStyleSheet;
     Basilico* basil;
@@ -127,6 +130,7 @@ public:
     static QIcon starIcon;
     static QIcon starHoleIcon;
     static QIcon menuIcon;
+    static QIcon plusIcon;
 
     static QJsonObject logJson;
 
