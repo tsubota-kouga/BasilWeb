@@ -522,6 +522,7 @@ void BasilWeb::settingTab(Dictionary& d)
             [&](int idx){
                 if(Tab.count() == 1){ return; }
                 Tab.removeTab(idx);
+                basil->killPlugin(this);
             });
 }
 
